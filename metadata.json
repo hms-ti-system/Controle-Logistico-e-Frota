@@ -1,0 +1,6 @@
+{
+  "name": "Sistema de Controle Logístico",
+  "description": "Sistema integrado para gestão logística, controle de viagens, frotas de cavalos e carretas, cadastro de motoristas e gestores, movimentação de containers e dashboard com indicadores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
