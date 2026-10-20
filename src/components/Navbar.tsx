@@ -12,7 +12,9 @@ import {
   X,
   Route as RouteIcon,
   Wrench,
-  Fuel
+  Fuel,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export type ActiveTab = 'dashboard' | 'trips' | 'maintenance' | 'fuel' | 'vehicles' | 'users' | 'routes';
@@ -30,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   mobileMenuOpen,
   setMobileMenuOpen,
 }) => {
-  const { currentUser, logout, maintenancePlans, vehicles } = useLogistics();
+  const { currentUser, logout, maintenancePlans, vehicles, theme, toggleTheme } = useLogistics();
 
   const isMotorista = currentUser?.role === 'motorista';
 
@@ -151,10 +153,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
+          {/* Theme Toggle Button (Claro / Escuro) */}
+          <button
+            onClick={toggleTheme}
+            type="button"
+            title={theme === 'dark' ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 rounded-lg transition-colors cursor-pointer shadow-sm"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden lg:inline text-[11px] font-semibold">Tema Claro</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-sky-500" />
+                <span className="hidden lg:inline text-[11px] font-semibold text-slate-700">Tema Escuro</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={logout}
             title="Sair do sistema"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors border border-slate-800"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors border border-slate-800 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sair</span>
@@ -166,11 +188,32 @@ export const Navbar: React.FC<NavbarProps> = ({
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-800 bg-slate-900 px-4 py-3 space-y-1">
           {currentUser && (
-            <div className="pb-2 mb-2 border-b border-slate-800 text-xs text-slate-300">
-              <div className="font-semibold text-white">{currentUser.nome}</div>
-              <div className="text-slate-400 text-[11px]">
-                {isMotorista ? 'Motorista' : 'Gestor da frota'} · {currentUser.email}
+            <div className="pb-2 mb-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-300">
+              <div>
+                <div className="font-semibold text-white">{currentUser.nome}</div>
+                <div className="text-slate-400 text-[11px]">
+                  {isMotorista ? 'Motorista' : 'Gestor da frota'} · {currentUser.email}
+                </div>
               </div>
+
+              {/* Theme toggle in mobile */}
+              <button
+                onClick={toggleTheme}
+                type="button"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-slate-800 border border-slate-700 rounded-lg text-slate-200"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Claro</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Escuro</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
 

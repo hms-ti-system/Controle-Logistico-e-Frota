@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLogistics } from '../context/LogisticsContext';
 import { Route } from '../types/logistics';
+import { formatCurrencyBR } from '../utils/formatters';
 import { 
   MapPin, 
   Plus, 
@@ -11,7 +12,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ArrowRight,
-  Route as RouteIcon
+  Route as RouteIcon,
+  Coins
 } from 'lucide-react';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
@@ -33,10 +35,11 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
-  // Form fields strictly: Nome da rota, Origem (cidade, estado), Destino (cidade, estado)
+  // Form fields strictly: Nome da rota, Origem (cidade, estado), Destino (cidade, estado), Valor do Frete
   const [nome, setNome] = useState('');
   const [origem, setOrigem] = useState('');
   const [destino, setDestino] = useState('');
+  const [valorFrete, setValorFrete] = useState('');
 
   // Messages
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -48,6 +51,7 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
     setNome('');
     setOrigem('');
     setDestino('');
+    setValorFrete('');
     setEditingRouteId(null);
     setErrorMsg(null);
   };
@@ -62,6 +66,7 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
     setNome(route.nome);
     setOrigem(route.origem);
     setDestino(route.destino);
+    setValorFrete(route.valorFrete !== undefined ? String(route.valorFrete) : '');
     setErrorMsg(null);
     setIsFormOpen(true);
   };
@@ -88,11 +93,23 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
       return;
     }
 
+    let parsedFrete: number | undefined = undefined;
+    if (valorFrete.trim()) {
+      const cleaned = valorFrete.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.');
+      const num = Number(cleaned);
+      if (isNaN(num) || num < 0) {
+        setErrorMsg('Informe um valor de frete válido (R$) maior ou igual a zero.');
+        return;
+      }
+      parsedFrete = num;
+    }
+
     if (editingRouteId) {
       updateRoute(editingRouteId, {
         nome: nome.trim(),
         origem: origem.trim(),
         destino: destino.trim(),
+        valorFrete: parsedFrete,
       });
       setSuccessMsg('Rota atualizada com sucesso!');
     } else {
@@ -100,6 +117,7 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
         nome: nome.trim(),
         origem: origem.trim(),
         destino: destino.trim(),
+        valorFrete: parsedFrete,
       });
       setSuccessMsg('Rota cadastrada com sucesso!');
     }
@@ -238,6 +256,25 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
                 </div>
               </div>
 
+              {/* Valor do Frete (R$) */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Valor do Frete (R$) <span className="text-[11px] text-slate-500 font-normal">(Opcional)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-emerald-400 font-mono">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    value={valorFrete}
+                    onChange={(e) => setValorFrete(e.target.value)}
+                    placeholder="Ex: 3850,00"
+                    className="w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-emerald-300 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
               {/* Form buttons */}
               <div className="pt-2 flex items-center justify-between gap-2">
                 {editingRouteId ? (
@@ -306,15 +343,16 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
                 <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
                   <tr>
                     <th className="py-3 px-4 font-semibold">Nome da Rota</th>
-                    <th className="py-3 px-4 font-semibold">Origem (cidade, estado)</th>
-                    <th className="py-3 px-4 font-semibold">Destino (cidade, estado)</th>
+                    <th className="py-3 px-4 font-semibold">Origem</th>
+                    <th className="py-3 px-4 font-semibold">Destino</th>
+                    <th className="py-3 px-4 font-semibold text-right">Valor Frete</th>
                     <th className="py-3 px-4 font-semibold text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {filteredRoutes.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-500">
+                      <td colSpan={5} className="py-8 text-center text-slate-500">
                         Nenhuma rota encontrada.
                       </td>
                     </tr>
@@ -335,6 +373,15 @@ export const RouteManagementModal: React.FC<RouteManagementModalProps> = ({
                             <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                             <span>{route.destino}</span>
                           </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {route.valorFrete !== undefined && route.valorFrete > 0 ? (
+                            <span className="font-mono text-emerald-400 font-semibold">
+                              {formatCurrencyBR(route.valorFrete)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 font-mono text-[11px]">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">

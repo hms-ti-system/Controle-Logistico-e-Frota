@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useLogistics } from '../context/LogisticsContext';
 import { Trip, Route, ContainerLoadType } from '../types/logistics';
-import { formatContainer, formatDateBR } from '../utils/formatters';
+import { formatContainer, formatDateBR, formatCurrencyBR } from '../utils/formatters';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { PeriodFilter } from './PeriodFilter';
 import { 
@@ -721,7 +721,7 @@ export const TripControlScreen: React.FC = () => {
                     <option value="" disabled>Escolha uma rota para preencher Origem e Destino...</option>
                     {routes.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.nome}: {r.origem} → {r.destino}
+                        {r.nome}: {r.origem} → {r.destino} {r.valorFrete ? `(Frete: ${formatCurrencyBR(r.valorFrete)})` : ''}
                       </option>
                     ))}
                   </select>

@@ -24,11 +24,14 @@ export interface Vehicle {
   createdAt: string;
 }
 
+export type ThemeMode = 'dark' | 'light';
+
 export interface Route {
   id: string;
   nome: string;
   origem: string; // cidade, estado
   destino: string; // cidade, estado
+  valorFrete?: number; // Valor do frete em R$
   createdAt: string;
 }
 

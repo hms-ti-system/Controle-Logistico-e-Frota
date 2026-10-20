@@ -7,7 +7,8 @@ import {
   UserRole,
   MaintenancePlan,
   MaintenanceRecord,
-  FuelRecord 
+  FuelRecord,
+  ThemeMode 
 } from '../types/logistics';
 import { 
   INITIAL_USERS, 
@@ -20,6 +21,8 @@ import {
 } from '../data/initialData';
 
 interface LogisticsContextType {
+  theme: ThemeMode;
+  toggleTheme: () => void;
   currentUser: User | null;
   login: (login: string, senha: string) => { success: boolean; message?: string };
   quickLoginAs: (role: UserRole) => void;
@@ -80,8 +83,38 @@ const STORAGE_KEY_ROUTES = 'logistica_routes_v2';
 const STORAGE_KEY_MAINT_PLANS = 'logistica_maint_plans_v1';
 const STORAGE_KEY_MAINT_RECORDS = 'logistica_maint_records_v1';
 const STORAGE_KEY_FUEL_RECORDS = 'logistica_fuel_records_v1';
+const STORAGE_KEY_THEME = 'logistica_app_theme_v1';
 
 export const LogisticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_THEME);
+      if (saved === 'light' || saved === 'dark') return saved;
+      return 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_THEME, theme);
+    } catch {
+      // ignore
+    }
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_AUTH);
@@ -645,6 +678,8 @@ export const LogisticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateFuelRecord,
         deleteFuelRecord,
         resetToInitialData,
+        theme,
+        toggleTheme,
       }}
     >
       {children}

@@ -231,6 +231,7 @@ export const INITIAL_ROUTES: Route[] = [
     nome: 'Santos x Campinas',
     origem: 'Santos, SP',
     destino: 'Campinas, SP',
+    valorFrete: 3850.00,
     createdAt: '2026-09-01T08:00:00Z',
   },
   {
@@ -238,6 +239,7 @@ export const INITIAL_ROUTES: Route[] = [
     nome: 'Paranaguá x Betim',
     origem: 'Paranaguá, PR',
     destino: 'Betim, MG',
+    valorFrete: 6200.00,
     createdAt: '2026-09-02T08:00:00Z',
   },
   {
@@ -245,6 +247,7 @@ export const INITIAL_ROUTES: Route[] = [
     nome: 'Taubaté x Santos (BTP)',
     origem: 'Taubaté, SP',
     destino: 'Santos, SP',
+    valorFrete: 2900.00,
     createdAt: '2026-09-03T08:00:00Z',
   },
   {
@@ -252,6 +255,7 @@ export const INITIAL_ROUTES: Route[] = [
     nome: 'Suape x Goiana',
     origem: 'Ipojuca (Suape), PE',
     destino: 'Goiana, PE',
+    valorFrete: 1950.00,
     createdAt: '2026-09-04T08:00:00Z',
   },
   {
@@ -259,6 +263,7 @@ export const INITIAL_ROUTES: Route[] = [
     nome: 'Cubatão x Itajaí',
     origem: 'Cubatão, SP',
     destino: 'Itajaí, SC',
+    valorFrete: 4800.00,
     createdAt: '2026-09-05T08:00:00Z',
   },
   {
@@ -266,6 +271,7 @@ export const INITIAL_ROUTES: Route[] = [
     nome: 'Rio Grande x Triunfo',
     origem: 'Rio Grande, RS',
     destino: 'Triunfo, RS',
+    valorFrete: 3400.00,
     createdAt: '2026-09-06T08:00:00Z',
   },
 ];

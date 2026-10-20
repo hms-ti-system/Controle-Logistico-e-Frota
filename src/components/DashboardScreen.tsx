@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLogistics } from '../context/LogisticsContext';
-import { formatDateBR, formatCurrencyBR, formatNumberBR } from '../utils/formatters';
+import { formatDateBR, formatCurrencyBR, formatNumberBR, formatKM } from '../utils/formatters';
 import { 
   BarChart3, 
   Truck, 
@@ -15,7 +15,13 @@ import {
   Wrench,
   Fuel,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Bell,
+  ShieldAlert,
+  Gauge,
+  Clock,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { PeriodFilter } from './PeriodFilter';
@@ -135,6 +141,84 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
     return { vencidos, proximos, emDia, total: maintenancePlans.length };
   }, [maintenancePlans, vehicleKmMap]);
 
+  // Detailed visual alerts for vehicles close to or past their maintenance KM limit
+  const vehicleKmAlerts = useMemo(() => {
+    const list: Array<{
+      id: string;
+      placa: string;
+      modelo: string;
+      itemServico: string;
+      kmAtual: number;
+      kmProxima: number;
+      kmRestante: number;
+      toleranciaKm: number;
+      percentualProgresso: number;
+      tipoAlerta: 'vencido' | 'proximo';
+      diferencaKm: number;
+    }> = [];
+
+    maintenancePlans.forEach((plan) => {
+      if (plan.tipoVeiculo === 'Cavalo') {
+        const veh = vehicles.find((v) => v.placa === plan.placa);
+        const kmAtual = veh?.kmAtual || 0;
+        const kmProxima = plan.kmProximaManutencao || 0;
+        const kmRestante = kmProxima - kmAtual;
+        const tolerancia = plan.toleranciaAlertaKm || 1000;
+
+        const totalInterval = plan.intervaloKm || 20000;
+        const kmDesdeUltima = kmAtual - (plan.kmUltimaManutencao || 0);
+        const percentualProgresso = Math.min(100, Math.max(0, Math.round((kmDesdeUltima / totalInterval) * 100)));
+
+        if (kmRestante <= 0) {
+          list.push({
+            id: plan.id,
+            placa: plan.placa,
+            modelo: veh?.modelo || 'Cavalo Mecânico',
+            itemServico: plan.itemServico,
+            kmAtual,
+            kmProxima,
+            kmRestante,
+            toleranciaKm: tolerancia,
+            percentualProgresso: 100,
+            tipoAlerta: 'vencido',
+            diferencaKm: Math.abs(kmRestante),
+          });
+        } else if (kmRestante <= tolerancia) {
+          list.push({
+            id: plan.id,
+            placa: plan.placa,
+            modelo: veh?.modelo || 'Cavalo Mecânico',
+            itemServico: plan.itemServico,
+            kmAtual,
+            kmProxima,
+            kmRestante,
+            toleranciaKm: tolerancia,
+            percentualProgresso,
+            tipoAlerta: 'proximo',
+            diferencaKm: kmRestante,
+          });
+        }
+      }
+    });
+
+    return list.sort((a, b) => {
+      if (a.tipoAlerta === 'vencido' && b.tipoAlerta !== 'vencido') return -1;
+      if (a.tipoAlerta !== 'vencido' && b.tipoAlerta === 'vencido') return 1;
+      return a.kmRestante - b.kmRestante;
+    });
+  }, [maintenancePlans, vehicles]);
+
+  const [alertFilter, setAlertFilter] = useState<'all' | 'vencido' | 'proximo'>('all');
+  const [isAlertPanelCollapsed, setIsAlertPanelCollapsed] = useState(false);
+
+  const filteredKmAlerts = useMemo(() => {
+    if (alertFilter === 'all') return vehicleKmAlerts;
+    return vehicleKmAlerts.filter((a) => a.tipoAlerta === alertFilter);
+  }, [vehicleKmAlerts, alertFilter]);
+
+  const countVencidosKm = vehicleKmAlerts.filter((a) => a.tipoAlerta === 'vencido').length;
+  const countProximosKm = vehicleKmAlerts.filter((a) => a.tipoAlerta === 'proximo').length;
+
   // Fuel in selected period
   const periodFuelRecords = useMemo(() => {
     return fuelRecords.filter((f) => isTripInPeriod(f.data, periodFilter));
@@ -189,6 +273,272 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
         matchingCount={totalViagensPeriodo}
         title="Filtro do Período Operacional:"
       />
+
+      {/* Sistema de Alertas Visuais no Dashboard: Notificação de Próxima Manutenção Preventiva por Quilometragem */}
+      <div className={`rounded-xl border transition-all ${
+        countVencidosKm > 0 
+          ? 'bg-red-950/20 border-red-800/80 shadow-lg shadow-red-950/30' 
+          : countProximosKm > 0 
+            ? 'bg-amber-950/20 border-amber-800/80 shadow-lg shadow-amber-950/20'
+            : 'bg-slate-900 border-slate-800'
+      }`}>
+        {/* Banner Header */}
+        <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800/80">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+              countVencidosKm > 0
+                ? 'bg-red-600/20 border-red-500/40 text-red-400 animate-pulse'
+                : countProximosKm > 0
+                  ? 'bg-amber-600/20 border-amber-500/40 text-amber-400'
+                  : 'bg-emerald-600/20 border-emerald-500/40 text-emerald-400'
+            }`}>
+              {countVencidosKm > 0 ? (
+                <ShieldAlert className="w-5 h-5" />
+              ) : countProximosKm > 0 ? (
+                <Bell className="w-5 h-5" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5" />
+              )}
+            </div>
+
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+                  <span>Alertas de Manutenção Preventiva por Quilometragem</span>
+                </h2>
+                {countVencidosKm > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-600/30 text-red-300 border border-red-500/50 flex items-center gap-1 animate-pulse">
+                    <AlertTriangle className="w-3 h-3 text-red-400" />
+                    <span>{countVencidosKm} Vencido{countVencidosKm > 1 ? 's' : ''}</span>
+                  </span>
+                )}
+                {countProximosKm > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-600/30 text-amber-300 border border-amber-500/50 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-400" />
+                    <span>{countProximosKm} Próximo{countProximosKm > 1 ? 's' : ''} do Limite</span>
+                  </span>
+                )}
+                {vehicleKmAlerts.length === 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    Nenhum alerta pendente
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Monitoramento contínuo dos odômetros dos cavalos mecânicos em relação aos limites de manutenção preventiva
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            {vehicleKmAlerts.length > 0 && (
+              <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-lg p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setAlertFilter('all')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    alertFilter === 'all'
+                      ? 'bg-slate-800 text-white font-semibold shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Todos ({vehicleKmAlerts.length})
+                </button>
+                {countVencidosKm > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAlertFilter('vencido')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                      alertFilter === 'vencido'
+                        ? 'bg-red-600 text-white font-semibold shadow-sm'
+                        : 'text-red-400 hover:text-red-300'
+                    }`}
+                  >
+                    Vencidos ({countVencidosKm})
+                  </button>
+                )}
+                {countProximosKm > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAlertFilter('proximo')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                      alertFilter === 'proximo'
+                        ? 'bg-amber-600 text-white font-semibold shadow-sm'
+                        : 'text-amber-400 hover:text-amber-300'
+                    }`}
+                  >
+                    Próximos ({countProximosKm})
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onNavigate('maintenance')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 hover:bg-slate-800 rounded-lg transition-colors border border-slate-800"
+            >
+              <span>Ver Módulo Completo</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            {vehicleKmAlerts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsAlertPanelCollapsed(!isAlertPanelCollapsed)}
+                title={isAlertPanelCollapsed ? 'Expandir alertas' : 'Minimizar alertas'}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                {isAlertPanelCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Banner Body */}
+        {!isAlertPanelCollapsed && (
+          <div className="p-4 sm:p-5">
+            {vehicleKmAlerts.length === 0 ? (
+              <div className="p-4 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-center gap-3 text-xs text-emerald-300">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="font-semibold text-emerald-200">Quilometragens da frota em dia!</div>
+                  <div className="text-[11px] text-emerald-400/90 mt-0.5">
+                    Nenhum cavalo mecânico está próximo ou acima do limite estipulado para a próxima troca de óleo ou revisão preventiva.
+                  </div>
+                </div>
+              </div>
+            ) : filteredKmAlerts.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-400">
+                Nenhum alerta encontrado para o filtro selecionado.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredKmAlerts.map((alert) => {
+                  const isVencido = alert.tipoAlerta === 'vencido';
+
+                  return (
+                    <div
+                      key={alert.id}
+                      className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
+                        isVencido
+                          ? 'bg-slate-950/90 border-red-800/70 hover:border-red-600'
+                          : 'bg-slate-950/90 border-amber-800/70 hover:border-amber-600'
+                      }`}
+                    >
+                      <div>
+                        {/* Top card header */}
+                        <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-800">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-base font-bold text-white tracking-wide">
+                                {alert.placa}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                isVencido
+                                  ? 'bg-red-950 text-red-300 border border-red-700/80 animate-pulse'
+                                  : 'bg-amber-950 text-amber-300 border border-amber-700/80'
+                              }`}>
+                                {isVencido ? 'KM Vencido' : 'Próximo do Limite'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              {alert.modelo}
+                            </div>
+                          </div>
+
+                          <div className={`p-1.5 rounded-lg border shrink-0 ${
+                            isVencido
+                              ? 'bg-red-950/80 border-red-800/80 text-red-400'
+                              : 'bg-amber-950/80 border-amber-800/80 text-amber-400'
+                          }`}>
+                            <Gauge className="w-4 h-4" />
+                          </div>
+                        </div>
+
+                        {/* Service Item Name */}
+                        <div className="mt-3">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold block">
+                            Serviço Programado
+                          </span>
+                          <span className="text-xs font-semibold text-slate-200 line-clamp-2 mt-0.5">
+                            {alert.itemServico}
+                          </span>
+                        </div>
+
+                        {/* Kilometer Stats */}
+                        <div className="grid grid-cols-2 gap-2 mt-3 p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block">Odômetro Atual</span>
+                            <span className="text-xs font-mono font-bold text-slate-200">
+                              {formatKM(alert.kmAtual)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 block">Limite do Serviço</span>
+                            <span className="text-xs font-mono font-bold text-slate-200">
+                              {formatKM(alert.kmProxima)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Remaining / Overdue badge indicator */}
+                        <div className="mt-3">
+                          <div className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between ${
+                            isVencido
+                              ? 'bg-red-950/80 border border-red-800/60 text-red-300'
+                              : 'bg-amber-950/80 border border-amber-800/60 text-amber-300'
+                          }`}>
+                            <span className="flex items-center gap-1.5">
+                              {isVencido ? <AlertTriangle className="w-3.5 h-3.5 text-red-400" /> : <Clock className="w-3.5 h-3.5 text-amber-400" />}
+                              <span>{isVencido ? 'Ultrapassou o limite:' : 'Faltam para o limite:'}</span>
+                            </span>
+                            <span className="font-mono font-bold">
+                              {alert.diferencaKm.toLocaleString('pt-BR')} km
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar of the maintenance cycle */}
+                        <div className="mt-3 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                            <span>Ciclo de manutenção</span>
+                            <span className={`font-bold ${isVencido ? 'text-red-400' : 'text-amber-400'}`}>
+                              {alert.percentualProgresso}%
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                isVencido ? 'bg-red-500' : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${alert.percentualProgresso}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Action */}
+                      <button
+                        type="button"
+                        onClick={() => onNavigate('maintenance')}
+                        className={`w-full mt-4 pt-2.5 border-t border-slate-800/80 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                          isVencido
+                            ? 'text-red-400 hover:text-red-300'
+                            : 'text-amber-400 hover:text-amber-300'
+                        }`}
+                      >
+                        <span>Registrar manutenção</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

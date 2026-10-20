@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useLogistics } from '../context/LogisticsContext';
-import { Truck, ShieldCheck, KeyRound, User as UserIcon, ArrowRight, AlertCircle } from 'lucide-react';
+import { Truck, ShieldCheck, KeyRound, User as UserIcon, ArrowRight, AlertCircle, Sun, Moon } from 'lucide-react';
 
 export const LoginScreen: React.FC = () => {
-  const { login, quickLoginAs } = useLogistics();
+  const { login, quickLoginAs, theme, toggleTheme } = useLogistics();
   const [loginInput, setLoginInput] = useState('');
   const [senhaInput, setSenhaInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -28,7 +28,28 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 text-slate-100">
+    <div className="relative min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 text-slate-100">
+      {/* Top right theme toggle */}
+      <div className="absolute top-4 right-4">
+        <button
+          onClick={toggleTheme}
+          type="button"
+          title={theme === 'dark' ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 border border-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer shadow-sm"
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              <span>Tema Claro</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-3.5 h-3.5 text-sky-500" />
+              <span>Tema Escuro</span>
+            </>
+          )}
+        </button>
+      </div>
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">

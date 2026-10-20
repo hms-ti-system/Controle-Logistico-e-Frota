@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLogistics } from '../context/LogisticsContext';
 import { Route } from '../types/logistics';
+import { formatCurrencyBR } from '../utils/formatters';
 import { 
   Route as RouteIcon, 
   MapPin, 
@@ -12,7 +13,9 @@ import {
   AlertCircle, 
   X, 
   Navigation,
-  ArrowRight
+  ArrowRight,
+  DollarSign,
+  Coins
 } from 'lucide-react';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
@@ -48,6 +51,7 @@ export const RouteManagementScreen: React.FC = () => {
   const [nome, setNome] = useState('');
   const [origem, setOrigem] = useState('');
   const [destino, setDestino] = useState('');
+  const [valorFrete, setValorFrete] = useState('');
 
   // Messages
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -60,6 +64,7 @@ export const RouteManagementScreen: React.FC = () => {
     setNome('');
     setOrigem('');
     setDestino('');
+    setValorFrete('');
     setEditingRouteId(null);
     setErrorMsg(null);
   };
@@ -74,6 +79,7 @@ export const RouteManagementScreen: React.FC = () => {
     setNome(route.nome);
     setOrigem(route.origem);
     setDestino(route.destino);
+    setValorFrete(route.valorFrete !== undefined ? String(route.valorFrete) : '');
     setErrorMsg(null);
     setIsModalOpen(true);
   };
@@ -95,11 +101,23 @@ export const RouteManagementScreen: React.FC = () => {
       return;
     }
 
+    let parsedFrete: number | undefined = undefined;
+    if (valorFrete.trim()) {
+      const cleaned = valorFrete.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.');
+      const num = Number(cleaned);
+      if (isNaN(num) || num < 0) {
+        setErrorMsg('Informe um valor de frete válido (R$) maior ou igual a zero.');
+        return;
+      }
+      parsedFrete = num;
+    }
+
     if (editingRouteId) {
       updateRoute(editingRouteId, {
         nome: nome.trim(),
         origem: origem.trim(),
         destino: destino.trim(),
+        valorFrete: parsedFrete,
       });
       setSuccessMsg('Rota atualizada com sucesso!');
     } else {
@@ -107,6 +125,7 @@ export const RouteManagementScreen: React.FC = () => {
         nome: nome.trim(),
         origem: origem.trim(),
         destino: destino.trim(),
+        valorFrete: parsedFrete,
       });
       setSuccessMsg('Rota cadastrada com sucesso!');
     }
@@ -154,6 +173,11 @@ export const RouteManagementScreen: React.FC = () => {
   const uniqueOriginsCount = new Set(routes.map((r) => r.origem.trim().toLowerCase())).size;
   const uniqueDestinationsCount = new Set(routes.map((r) => r.destino.trim().toLowerCase())).size;
 
+  const routesWithFreight = routes.filter((r) => r.valorFrete && r.valorFrete > 0);
+  const mediaFrete = routesWithFreight.length > 0
+    ? routesWithFreight.reduce((acc, r) => acc + (r.valorFrete || 0), 0) / routesWithFreight.length
+    : 0;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -164,7 +188,7 @@ export const RouteManagementScreen: React.FC = () => {
             <span>Cadastro e Gestão de Rotas</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Gerenciamento de trajetos logísticos, cidades de origem e destino para preenchimento de viagens
+            Gerenciamento de trajetos logísticos, cidades de origem, destino e valores de frete
           </p>
         </div>
 
@@ -192,23 +216,33 @@ export const RouteManagementScreen: React.FC = () => {
       )}
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
           <div className="text-xs text-slate-400 font-medium">Total de Rotas Cadastradas</div>
           <div className="text-2xl font-bold text-white mt-1 font-mono tabular-nums">{routes.length}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Disponíveis para preenchimento de viagens</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Disponíveis para preenchimento</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
           <div className="text-xs text-slate-400 font-medium">Cidades de Origem</div>
           <div className="text-2xl font-bold text-blue-400 mt-1 font-mono tabular-nums">{uniqueOriginsCount}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Pontos de embarque e portos cadastrados</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Pontos de embarque e portos</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
           <div className="text-xs text-slate-400 font-medium">Cidades de Destino</div>
-          <div className="text-2xl font-bold text-emerald-400 mt-1 font-mono tabular-nums">{uniqueDestinationsCount}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Terminais e pólos industriais atendidos</div>
+          <div className="text-2xl font-bold text-sky-400 mt-1 font-mono tabular-nums">{uniqueDestinationsCount}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Terminais e pólos industriais</div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div className="text-xs text-slate-400 font-medium">Frete Médio Cadastrado</div>
+          <div className="text-2xl font-bold text-emerald-400 mt-1 font-mono tabular-nums">
+            {mediaFrete > 0 ? formatCurrencyBR(mediaFrete) : 'R$ 0,00'}
+          </div>
+          <div className="text-[11px] text-slate-500 mt-0.5">
+            {routesWithFreight.length} de {routes.length} rotas com valor
+          </div>
         </div>
       </div>
 
@@ -243,6 +277,7 @@ export const RouteManagementScreen: React.FC = () => {
                 <th className="py-3 px-4 font-semibold">Nome da Rota</th>
                 <th className="py-3 px-4 font-semibold">Origem (Embarque)</th>
                 <th className="py-3 px-4 font-semibold">Destino (Entrega)</th>
+                <th className="py-3 px-4 font-semibold text-right">Valor do Frete (R$)</th>
                 <th className="py-3 px-4 font-semibold text-center">Viagens Relacionadas</th>
                 <th className="py-3 px-4 font-semibold text-right">Ações</th>
               </tr>
@@ -250,7 +285,7 @@ export const RouteManagementScreen: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60">
               {filteredRoutes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-slate-500">
+                  <td colSpan={6} className="py-10 text-center text-slate-500">
                     <RouteIcon className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
                     <p className="text-slate-400 font-medium">Nenhuma rota encontrada</p>
                     <p className="text-[11px] text-slate-500 mt-1">
@@ -285,6 +320,17 @@ export const RouteManagementScreen: React.FC = () => {
                           <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                           <span>{route.destino}</span>
                         </span>
+                      </td>
+
+                      <td className="py-3 px-4 text-right">
+                        {route.valorFrete !== undefined && route.valorFrete > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 rounded-lg font-mono font-semibold">
+                            <Coins className="w-3 h-3 text-emerald-400 shrink-0" />
+                            {formatCurrencyBR(route.valorFrete)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 font-mono text-[11px]">Não informado</span>
+                        )}
                       </td>
 
                       <td className="py-3 px-4 text-center font-mono tabular-nums text-slate-400">
@@ -430,6 +476,32 @@ export const RouteManagementScreen: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Valor do Frete (R$) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Valor do Frete (R$)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-500">Opcional / Sugerido</span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-emerald-400 font-mono">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    value={valorFrete}
+                    onChange={(e) => setValorFrete(e.target.value)}
+                    placeholder="Ex: 3850,00"
+                    className="w-full pl-10 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-emerald-300 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Valor padrão do frete praticado para transporte de containers nesta rota.
+                </p>
               </div>
 
               {/* Modal buttons */}
