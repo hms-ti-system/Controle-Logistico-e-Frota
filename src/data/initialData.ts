@@ -171,6 +171,8 @@ export const INITIAL_TRIPS: Trip[] = [
     origem: 'Porto de Paranaguá - PR',
     destino: 'Polo Industrial Betim - MG',
     container: 'MEDU 491204-8',
+    container2: 'SUDU 119834-0',
+    tipoCarregamento: '2_containers',
     createdAt: '2026-10-03T08:30:00Z',
   },
   {

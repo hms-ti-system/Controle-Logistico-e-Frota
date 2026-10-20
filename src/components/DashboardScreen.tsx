@@ -64,9 +64,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
   const totalMotoristasAtivos = motoristasAtivos.length;
   const motoristasComViagensNoPeriodo = new Set(filteredTrips.map((t) => t.motoristaId)).size;
 
-  // 3. Total de container transportado no período
-  const totalContainersTransportados = filteredTrips.length;
-  const containersUnicos = new Set(filteredTrips.map((t) => t.container)).size;
+  // 3. Total de container transportado no período (considera carregamentos de 1 ou 2 containers por carreta)
+  const totalContainersTransportados = filteredTrips.reduce((acc, t) => acc + (t.container2 ? 2 : 1), 0);
+  const containersSet = new Set<string>();
+  filteredTrips.forEach((t) => {
+    if (t.container) containersSet.add(t.container);
+    if (t.container2) containersSet.add(t.container2);
+  });
+  const containersUnicos = containersSet.size;
+  const viagensCarregamentoDuplo = filteredTrips.filter((t) => !!t.container2).length;
 
   // Vehicles summary (frota total)
   const cavalos = vehicles.filter((v) => v.tipo === 'Cavalo').length;
@@ -252,7 +258,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
               {containersUnicos} identificações únicas no período
             </div>
             <div className="text-[11px] text-slate-500 mt-0.5">
-              Reflete movimentações no filtro ativo
+              {viagensCarregamentoDuplo > 0 
+                ? `${viagensCarregamentoDuplo} viagem(ns) com 2 containers na mesma carreta` 
+                : 'Reflete movimentações no filtro ativo'}
             </div>
           </div>
           <button

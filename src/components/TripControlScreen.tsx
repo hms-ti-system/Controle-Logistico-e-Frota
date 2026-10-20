@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLogistics } from '../context/LogisticsContext';
-import { Trip, Route } from '../types/logistics';
+import { Trip, Route, ContainerLoadType } from '../types/logistics';
 import { formatContainer, formatDateBR } from '../utils/formatters';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { PeriodFilter } from './PeriodFilter';
@@ -24,7 +24,8 @@ import {
   Calendar,
   Filter,
   User as UserIcon,
-  Route as RouteIcon
+  Route as RouteIcon,
+  Layers
 } from 'lucide-react';
 
 const COMMON_ORIGINS = [
@@ -80,7 +81,9 @@ export const TripControlScreen: React.FC = () => {
   const [placaCarreta, setPlacaCarreta] = useState('');
   const [origem, setOrigem] = useState('');
   const [destino, setDestino] = useState('');
+  const [tipoCarregamento, setTipoCarregamento] = useState<ContainerLoadType>('1_container');
   const [container, setContainer] = useState('');
+  const [container2, setContainer2] = useState('');
 
   // Notifications
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -131,7 +134,9 @@ export const TripControlScreen: React.FC = () => {
     setPlacaCarreta(activeCarretas[0]?.placa || '');
     setOrigem('');
     setDestino('');
+    setTipoCarregamento('1_container');
     setContainer('');
+    setContainer2('');
     setEditingTripId(null);
     setErrorMsg(null);
   };
@@ -157,7 +162,9 @@ export const TripControlScreen: React.FC = () => {
     setPlacaCarreta(trip.placaCarreta);
     setOrigem(trip.origem);
     setDestino(trip.destino);
-    setContainer(trip.container);
+    setTipoCarregamento(trip.tipoCarregamento || (trip.container2 ? '2_containers' : '1_container'));
+    setContainer(trip.container || '');
+    setContainer2(trip.container2 || '');
     setErrorMsg(null);
     setIsModalOpen(true);
   };
@@ -193,14 +200,25 @@ export const TripControlScreen: React.FC = () => {
       return;
     }
     if (!container.trim()) {
-      setErrorMsg('Informe a identificação do container.');
+      setErrorMsg(tipoCarregamento === '2_containers' ? 'Informe a identificação do 1º container.' : 'Informe a identificação do container.');
       return;
+    }
+    if (tipoCarregamento === '2_containers') {
+      if (!container2.trim()) {
+        setErrorMsg('Informe a identificação do 2º container para carregamento duplo na carreta.');
+        return;
+      }
+      if (container.trim().toUpperCase() === container2.trim().toUpperCase()) {
+        setErrorMsg('Os dois containers na mesma carreta não podem ter a mesma identificação.');
+        return;
+      }
     }
 
     const selectedMotorista = users.find((u) => u.id === effectiveMotoristaId);
     const motoristaNome = isMotorista && currentUser ? currentUser.nome : selectedMotorista ? selectedMotorista.nome : 'Motorista';
 
     const formattedContainer = formatContainer(container);
+    const formattedContainer2 = tipoCarregamento === '2_containers' && container2.trim() ? formatContainer(container2) : undefined;
 
     if (editingTripId) {
       updateTrip(editingTripId, {
@@ -211,7 +229,9 @@ export const TripControlScreen: React.FC = () => {
         placaCarreta,
         origem: origem.trim(),
         destino: destino.trim(),
+        tipoCarregamento,
         container: formattedContainer,
+        container2: formattedContainer2,
       });
       setSuccessMsg('Viagem atualizada com sucesso!');
     } else {
@@ -223,9 +243,11 @@ export const TripControlScreen: React.FC = () => {
         placaCarreta,
         origem: origem.trim(),
         destino: destino.trim(),
+        tipoCarregamento,
         container: formattedContainer,
+        container2: formattedContainer2,
       });
-      setSuccessMsg('Viagem lançada com sucesso!');
+      setSuccessMsg(tipoCarregamento === '2_containers' ? 'Viagem com 2 containers lançada com sucesso!' : 'Viagem lançada com sucesso!');
     }
 
     setIsModalOpen(false);
@@ -256,7 +278,7 @@ export const TripControlScreen: React.FC = () => {
       return;
     }
 
-    const headers = ['Data', 'Motorista', 'Placa Cavalo', 'Placa Carreta', 'Origem', 'Destino', 'Container'];
+    const headers = ['Data', 'Motorista', 'Placa Cavalo', 'Placa Carreta', 'Origem', 'Destino', 'Tipo de Carregamento', 'Container 1', 'Container 2'];
     const rows = filteredTrips.map((t) => [
       t.data,
       `"${t.motoristaNome}"`,
@@ -264,7 +286,9 @@ export const TripControlScreen: React.FC = () => {
       t.placaCarreta,
       `"${t.origem}"`,
       `"${t.destino}"`,
+      t.container2 ? '"2 Containers (2x 20\')"' : '"1 Container"',
       `"${t.container}"`,
+      `"${t.container2 || ''}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -285,6 +309,7 @@ export const TripControlScreen: React.FC = () => {
     const matchesSearch =
       !term ||
       t.container.toLowerCase().includes(term) ||
+      (t.container2 && t.container2.toLowerCase().includes(term)) ||
       t.motoristaNome.toLowerCase().includes(term) ||
       t.placaCavalo.toLowerCase().includes(term) ||
       t.placaCarreta.toLowerCase().includes(term) ||
@@ -296,7 +321,14 @@ export const TripControlScreen: React.FC = () => {
   });
 
   const totalFilteredTrips = filteredTrips.length;
-  const uniqueContainers = new Set(filteredTrips.map((t) => t.container)).size;
+  const totalContainersTransportados = filteredTrips.reduce((acc, t) => acc + (t.container2 ? 2 : 1), 0);
+  const containersSet = new Set<string>();
+  filteredTrips.forEach((t) => {
+    if (t.container) containersSet.add(t.container);
+    if (t.container2) containersSet.add(t.container2);
+  });
+  const uniqueContainers = containersSet.size;
+  const viagensDuploContainer = filteredTrips.filter((t) => !!t.container2).length;
 
   const handleSelectRouteForTrip = (selectedRoute: Route) => {
     setOrigem(selectedRoute.origem);
@@ -377,9 +409,11 @@ export const TripControlScreen: React.FC = () => {
 
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
           <div className="text-xs text-slate-400 font-medium">Containers ({activePeriodLabel})</div>
-          <div className="text-2xl font-bold text-sky-400 mt-1 font-mono tabular-nums">{uniqueContainers}</div>
+          <div className="text-2xl font-bold text-sky-400 mt-1 font-mono tabular-nums">{totalContainersTransportados}</div>
           <div className="text-[11px] text-slate-500 mt-0.5">
-            {isMotorista ? 'Containers transportados por você' : 'Identificações únicas no período'}
+            {viagensDuploContainer > 0
+              ? `${uniqueContainers} únicos · ${viagensDuploContainer} viagem(ns) com 2 containers`
+              : (isMotorista ? `${uniqueContainers} containers transportados por você` : `${uniqueContainers} identificações únicas no período`)}
           </div>
         </div>
 
@@ -444,7 +478,7 @@ export const TripControlScreen: React.FC = () => {
                 <th className="py-3 px-4 font-semibold">Placa da Carreta</th>
                 <th className="py-3 px-4 font-semibold">Origem</th>
                 <th className="py-3 px-4 font-semibold">Destino</th>
-                <th className="py-3 px-4 font-semibold">Container</th>
+                <th className="py-3 px-4 font-semibold">Container(s)</th>
                 <th className="py-3 px-4 font-semibold text-right">Ações</th>
               </tr>
             </thead>
@@ -501,11 +535,32 @@ export const TripControlScreen: React.FC = () => {
                       {trip.destino}
                     </td>
 
-                    <td className="py-3 px-4 font-mono font-bold text-sky-400 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-950/60 border border-sky-800/60 rounded">
-                        <Package className="w-3.5 h-3.5 text-sky-400" />
-                        <span>{trip.container}</span>
-                      </span>
+                    <td className="py-3 px-4 font-mono whitespace-nowrap">
+                      {trip.container2 ? (
+                        <div className="flex flex-col gap-1 py-0.5">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-950/80 text-amber-300 border border-amber-800/80 w-fit">
+                            <Layers className="w-3 h-3 text-amber-400" />
+                            <span>2x 20' Carreta</span>
+                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-sky-950/70 border border-sky-800/70 rounded font-bold text-sky-400 text-xs">
+                              <Package className="w-3 h-3 text-sky-400 shrink-0" />
+                              <span className="text-[10px] font-sans text-slate-400">1:</span>
+                              <span>{trip.container}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-sky-950/70 border border-sky-800/70 rounded font-bold text-sky-400 text-xs">
+                              <Package className="w-3 h-3 text-sky-400 shrink-0" />
+                              <span className="text-[10px] font-sans text-slate-400">2:</span>
+                              <span>{trip.container2}</span>
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-950/60 border border-sky-800/60 rounded font-bold text-sky-400">
+                          <Package className="w-3.5 h-3.5 text-sky-400" />
+                          <span>{trip.container}</span>
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-3 px-4 text-right whitespace-nowrap">
@@ -725,22 +780,112 @@ export const TripControlScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Container */}
+              {/* Opção de Carregamento na Carreta: 1 ou 2 containers */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Container
+                  Tipo de Carregamento na Carreta
                 </label>
-                <div className="relative">
-                  <Package className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={container}
-                    onChange={(e) => setContainer(e.target.value.toUpperCase())}
-                    placeholder="Ex: MSKU 782341-2 ou MEDU 491204-8"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 font-mono uppercase tracking-wider focus:outline-none focus:border-blue-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTipoCarregamento('1_container')}
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                      tipoCarregamento === '1_container'
+                        ? 'bg-sky-950/60 border-sky-500 text-sky-300 shadow-sm'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <Package className="w-4 h-4 text-sky-400" />
+                    <span>1 Container (40' ou 20')</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoCarregamento('2_containers')}
+                    className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                      tipoCarregamento === '2_containers'
+                        ? 'bg-amber-950/60 border-amber-500 text-amber-300 shadow-sm'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center -space-x-1">
+                      <Package className="w-4 h-4 text-amber-400" />
+                      <Package className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <span>2 Containers (2x 20' Mesma Carreta)</span>
+                  </button>
                 </div>
               </div>
+
+              {/* Informação / Inputs de Containers */}
+              {tipoCarregamento === '1_container' ? (
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                    Identificação do Container
+                  </label>
+                  <div className="relative">
+                    <Package className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={container}
+                      onChange={(e) => setContainer(e.target.value.toUpperCase())}
+                      placeholder="Ex: MSKU 782341-2 ou MEDU 491204-8"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 font-mono uppercase tracking-wider focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <span className="block text-[11px] text-slate-500 mt-1">
+                    Padrão internacional BIC ISO 6346 (4 letras + 6 números + dígito verificador)
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-3 p-3.5 bg-slate-950/90 border border-amber-800/40 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-amber-400" />
+                      <span>Carregamento Duplo: 2 Containers na Mesma Carreta</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800/80 font-bold">
+                      2x 20 Pés
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        1º Container (Frente / 20') *
+                      </label>
+                      <div className="relative">
+                        <Package className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={container}
+                          onChange={(e) => setContainer(e.target.value.toUpperCase())}
+                          placeholder="Ex: MSKU 782341-2"
+                          className="w-full pl-8 pr-2.5 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 font-mono uppercase tracking-wider focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        2º Container (Traseira / 20') *
+                      </label>
+                      <div className="relative">
+                        <Package className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={container2}
+                          onChange={(e) => setContainer2(e.target.value.toUpperCase())}
+                          placeholder="Ex: MEDU 491204-8"
+                          className="w-full pl-8 pr-2.5 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 font-mono uppercase tracking-wider focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Os 2 containers serão transportados juntos na carreta <span className="text-amber-400 font-mono font-bold">{placaCarreta || '(selecionar carreta)'}</span> nesta mesma viagem.
+                  </p>
+                </div>
+              )}
 
               {/* Modal buttons */}
               <div className="pt-4 flex items-center justify-between gap-2 border-t border-slate-800">
@@ -751,7 +896,7 @@ export const TripControlScreen: React.FC = () => {
                       const trip = trips.find((t) => t.id === editingTripId);
                       if (trip) {
                         setIsModalOpen(false);
-                        handleDelete(trip.id, trip.container);
+                        handleDelete(trip.id, trip.container2 ? `${trip.container} + ${trip.container2}` : trip.container);
                       }
                     }}
                     className="flex items-center gap-1.5 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded-lg text-xs font-medium transition-colors cursor-pointer"

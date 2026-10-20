@@ -32,6 +32,8 @@ export interface Route {
   createdAt: string;
 }
 
+export type ContainerLoadType = '1_container' | '2_containers';
+
 export interface Trip {
   id: string;
   data: string; // YYYY-MM-DD
@@ -41,7 +43,9 @@ export interface Trip {
   placaCarreta: string;
   origem: string;
   destino: string;
-  container: string;
+  container: string; // Primeiro container (ou container único de 40'/20')
+  container2?: string; // Segundo container na mesma carreta (carregamento duplo 2x 20')
+  tipoCarregamento?: ContainerLoadType; // '1_container' | '2_containers'
   createdAt: string;
 }
 
